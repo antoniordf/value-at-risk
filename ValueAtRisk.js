@@ -4,7 +4,7 @@ const mathjs = require("mathjs");
 const prices = require("./price_data.json");
 
 // Risk Level
-const risk = 0.05;
+const riskLevel = 0.05;
 
 // Calculate daily log returns
 let logReturns = [];
@@ -21,4 +21,11 @@ const volatility = Math.sqrt(variance);
 // Calculate z-score corresponding to risk level
 const zScore = -1 * mathjs.quantileSeq([riskLevel], 0.5, true);
 
-console.log(zScore);
+const collateralValue = 10000;
+
+// Calculate VaR
+const dailyVaR = collateralValue * zScore * volatility;
+const yearlyVaR = dailyVaR * Math.sqrt(365);
+
+console.log(dailyVaR);
+console.log(yearlyVaR);
