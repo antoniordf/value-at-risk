@@ -31,3 +31,5 @@ function calculateVaR(prices, riskLevel, collateralAmount, varPeriod) {
     return dailyVaR * Math.sqrt(365); // Return yearly VaR
   }
 }
+
+console.log(calculateVaR(prices, 0.01, 10000, 2));

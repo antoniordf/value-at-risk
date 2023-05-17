@@ -4,7 +4,7 @@ const mathjs = require("mathjs");
 const prices = require("./price_data.json");
 
 // Risk Level
-const riskLevel = 0.05;
+const riskLevel = 0.01;
 
 // Calculate daily log returns
 let logReturns = [];
