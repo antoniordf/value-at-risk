@@ -112,7 +112,7 @@ mean_VaR_hist = df['VaR_hist'].mean()
 print("Mean 1-day VaR USD (Historical Simulation): ", mean_VaR_hist)
 
 ################################################################################
-#                      ESPECTED SHORTFALL CALCULATION
+#                      EXPECTED SHORTFALL CALCULATION
 ################################################################################
 
 
