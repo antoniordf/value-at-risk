@@ -5,6 +5,10 @@ from arch import arch_model
 import scipy.stats as stats
 import json
 import matplotlib.pyplot as plt
+import statsmodels
+from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.stats.diagnostic import het_arch
+from statsmodels.stats.diagnostic import acorr_ljungbox
 
 # Load price data
 with open('price_data.json', 'r') as f:
@@ -12,6 +16,12 @@ with open('price_data.json', 'r') as f:
 
 # Convert to DataFrame
 df = pd.DataFrame(prices)
+
+# Risk level
+risk_level = 0.01
+
+# Collateral value
+collateralValue = 10000
 
 # Calculate log returns
 df['log_returns'] = np.log(df['rate_close'] / df['rate_close'].shift(1))
@@ -26,9 +36,31 @@ df['log_returns'] = df['log_returns'] * 100
 model = arch_model(df['log_returns'], vol='Garch', p=1, q=1, rescale=False)
 model_fit = model.fit()
 
-# Calculating Akaike Information Criterion (AIC) and Bayesian Information Criterion (BIC)
-print("AIC: ", model_fit.aic)
-print("BIC: ", model_fit.bic)
+# Print the summary
+print(model_fit.summary())
+
+################################################################################
+#                              RESIDUAL ANALYSIS
+################################################################################
+
+# Residuals
+residuals = model_fit.resid
+
+# Perform the Jarque-Bera normality test on the residuals
+jb_test = stats.jarque_bera(residuals)
+print(f'Jarque-Bera test -- statistic: {jb_test[0]}, p-value: {jb_test[1]}')
+
+# Perform the Ljung-Box Q test for autocorrelation in the residuals
+lb_test = acorr_ljungbox(residuals, lags=[10])
+print(f'Ljung-Box Q test for lag 10 -- statistic: {lb_test["lb_stat"].values[0]}, p-value: {lb_test["lb_pvalue"].values[0]}')
+
+# Perform the ARCH test for heteroskedasticity in the residuals
+arch_test = het_arch(residuals)
+print(f'ARCH test -- LM statistic: {arch_test[0]}, LM-Test p-value: {arch_test[1]}, F-statistic: {arch_test[2]}, F-Test p-value: {arch_test[3]}')
+
+################################################################################
+#                              FORECASTING
+################################################################################
 
 # Use the GARCH model to forecast the next day's volatility
 forecast = model_fit.forecast(start=0)
@@ -36,14 +68,12 @@ forecast = model_fit.forecast(start=0)
 # Get the standard deviation (square root of variance)
 volatility = np.sqrt(forecast.variance.iloc[-1,:])
 
-# Risk level
-risk_level = 0.01
+################################################################################
+#                   VaR CALC USING NORMAL DISTRIBUTION
+################################################################################
 
 # Calculate z-score corresponding to risk level
 zScore = -1 * stats.norm.ppf(risk_level)
-
-# Collateral value
-collateralValue = 10000
 
 # VaR
 daily_VaR = collateralValue * zScore * volatility
@@ -107,10 +137,14 @@ print("Mean 1-day ES USD (historical simulation): ", mean_ES_hist)
 ################################################################################
 
 # Calculate the realized volatility
-df['realized_vol'] = np.abs(df['log_returns'])
+# df['realized_vol'] = np.abs(df['log_returns'])
+df['realized_vol'] = df['log_returns'].rolling(window=30).std()
+
+# Shift the realized volatility forward by one day
+df['realized_vol'] = df['realized_vol'].shift(1)
 
 # Calculate predicted volatility
-df['predicted_vol'] = np.sqrt(forecast.variance)
+df['predicted_vol'] = np.sqrt(forecast.variance.iloc[:, 0])
 
 # Plot the predicted and realized volatility
 plt.figure(figsize=(10,5))
@@ -118,4 +152,15 @@ plt.plot(df['realized_vol'], label='Realized Volatility')
 plt.plot(df['predicted_vol'], color='r', label='Predicted Volatility from GARCH(1, 1)')
 plt.legend(loc='best')
 plt.title('Realized Volatility vs Predicted Volatility for ETH / USD')
+plt.show()
+
+# Plot the residuals
+plt.figure(figsize=(10,5))
+plt.plot(residuals)
+plt.title('Residuals of the GARCH(1, 1) Model')
+plt.show()
+
+# Plot the ACF of the residuals
+plot_acf(residuals, lags=20)
+plt.title('ACF of the GARCH(1, 1) Model Residuals')
 plt.show()
