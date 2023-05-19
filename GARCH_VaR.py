@@ -46,15 +46,18 @@ print(model_fit.summary())
 # Residuals
 residuals = model_fit.resid
 
-# Perform the Jarque-Bera normality test on the residuals
+# Perform the Jarque-Bera normality test on the residuals. H0: Residuals are normally distributed.
+# We want residuals to be normally distributed.
 jb_test = stats.jarque_bera(residuals)
 print(f'Jarque-Bera test -- statistic: {jb_test[0]}, p-value: {jb_test[1]}')
 
-# Perform the Ljung-Box Q test for autocorrelation in the residuals
+# Perform the Ljung-Box Q test for autocorrelation in the residuals. H0: Auto-correlation is zero.
+# We want auto-correlation to be zero.
 lb_test = acorr_ljungbox(residuals, lags=[10])
 print(f'Ljung-Box Q test for lag 10 -- statistic: {lb_test["lb_stat"].values[0]}, p-value: {lb_test["lb_pvalue"].values[0]}')
 
-# Perform the ARCH test for heteroskedasticity in the residuals
+# Perform the ARCH test for heteroskedasticity in the residuals. H0: residuals are homoskedastic.
+# We want residuals to me homoskedastic
 arch_test = het_arch(residuals)
 print(f'ARCH test -- LM statistic: {arch_test[0]}, LM-Test p-value: {arch_test[1]}, F-statistic: {arch_test[2]}, F-Test p-value: {arch_test[3]}')
 
