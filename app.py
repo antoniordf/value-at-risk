@@ -13,19 +13,37 @@ def calculate_var():
     collateralValue = data['collateralValue']
     risk_level = data['risk_level']
 
+    # Convert to DataFrame
     df = pd.DataFrame(prices)
+
+    # Calculate log returns
     df['log_returns'] = np.log(df['rate_close'] / df['rate_close'].shift(1))
+
+    # Drop missing values
     df = df.dropna()
+
+    # Rescale log returns
     df['log_returns'] = df['log_returns'] * 100
 
+    # Fit a GARCH(1, 1) model to the log returns
     model = arch_model(df['log_returns'], vol='Garch', p=1, q=1, rescale=False)
     model_fit = model.fit()
+
+    # Forecasting
     forecast = model_fit.forecast(start=0)
     volatility = np.sqrt(forecast.variance.iloc[-1,:])
+
+    ############################################################################
+    #                   VaR CALC USING NORMAL DISTRIBUTION
+    ############################################################################
 
     zScore = -1 * stats.norm.ppf(risk_level)
     daily_VaR = collateralValue * zScore * volatility
     yearly_VaR = daily_VaR * np.sqrt(365)
+
+    ############################################################################
+    #                     VaR CALC USING t DISTRIBUTION
+    ############################################################################
 
     params = stats.t.fit(df['log_returns'])
     t_value = -stats.t.ppf(risk_level, params[0])
