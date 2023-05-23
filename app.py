@@ -53,6 +53,10 @@ def calculate_var():
     df['VaR_hist'] = -df['log_returns'].rolling(window=len(prices)).quantile(risk_level)
     mean_VaR_hist = df['VaR_hist'].mean()
 
+    ############################################################################
+    #                            RETURN RESULTS
+    ############################################################################
+
     return jsonify({
         'Daily VaR USD': daily_VaR.values[0],
         'Yearly VaR USD': yearly_VaR.values[0],
