@@ -7,6 +7,10 @@ import os
 
 app = Flask(__name__)
 
+@app.route('/', methods=['GET'])
+def home():
+    return "The API is working!"
+
 @app.route('/calculate_var', methods=['POST'])
 def calculate_var():
     data = request.get_json()
