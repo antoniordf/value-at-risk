@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from arch import arch_model
 import scipy.stats as stats
+import os
 
 app = Flask(__name__)
 
@@ -66,4 +67,4 @@ def calculate_var():
     })
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
