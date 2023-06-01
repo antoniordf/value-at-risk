@@ -46,4 +46,5 @@ tzdata==2023.3
 virtualenv==20.13.3
 Werkzeug==2.0.3
 WTForms==3.0.1
+requests==2.30
 gunicorn
