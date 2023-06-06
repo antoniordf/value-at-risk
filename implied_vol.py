@@ -26,7 +26,6 @@ async def download_vol(asset):
                 if 'result' in response_json:
                     result = response_json['result']
                     if len(result) > 0:
-                        print(result[-1][1])
                         return result[-1][1]
 
         raise ValueError("No result found in the response")
