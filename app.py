@@ -1,3 +1,6 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+import requests
 from flask import Flask, request, jsonify
 import numpy as np
 import pandas as pd
@@ -7,36 +10,46 @@ import os
 import requests
 from datetime import datetime
 import time
+import asyncio
+import implied_vol
 
-app = Flask(__name__)
+app = FastAPI()
 
 
-@app.route('/', methods=['GET'])
+class CalculateVarInput(BaseModel):
+    asset: str
+    end_date: str
+    collateralValue: float
+    risk_level: float
+
+
+@app.get("/")
 def home():
-    return "The API is working!"
+    return {"message": "The API is working!"}
 
 
-@app.route('/calculate_var', methods=['POST'])
-def calculate_var():
+@app.post("/calculate_var")
+async def calculate_var(data: CalculateVarInput):
     try:
-        data = request.get_json()
-        asset = data['asset']
-        end_date = data['end_date']
-        collateralValue = data['collateralValue']
-        risk_level = data['risk_level']
+        asset = data.asset
+        end_date = data.end_date
+        collateralValue = data.collateralValue
+        risk_level = data.risk_level
 
         # Convert end_date to Unix timestamp (milliseconds)
         end_date = datetime.strptime(end_date, "%d/%m/%Y")
-        end_date_unix = int(time.mktime(end_date.timetuple()) *
-                            1000)  # Convert to milliseconds
+        end_date_unix = int(time.mktime(end_date.timetuple()) * 1000)
 
         # Fetch prices on Binance API
         url = f"https://api.binance.com/api/v3/klines?symbol={asset}&interval=1d&endTime={end_date_unix}&limit=1000"
         response = requests.get(url)
-        data = response.json()
+        binance_data = response.json()
+
+        # Fetch implied vol data from Deribit
+        deribit_vol = await implied_vol.download_vol(data.asset)
 
         # Convert to DataFrame
-        df = pd.DataFrame(data,
+        df = pd.DataFrame(binance_data,
                           columns=[
                               'Open time', 'Open', 'High', 'Low', 'Close',
                               'Volume', 'Close time', 'Quote asset volume',
@@ -74,8 +87,11 @@ def calculate_var():
         ############################################################################
 
         zScore = -1 * stats.norm.ppf(risk_level)
-        daily_VaR = collateralValue * zScore * volatility
-        yearly_VaR = daily_VaR * np.sqrt(365)
+        daily_VaR_GARCH = collateralValue * zScore * volatility
+        yearly_VaR_GARCH = daily_VaR_GARCH * np.sqrt(365)
+        daily_VaR_implied = collateralValue * zScore * (
+            (deribit_vol / 100) / np.sqrt(365))
+        yearly_VaR_implied = collateralValue * zScore * (deribit_vol / 100)
 
         ############################################################################
         #                     VaR CALC USING t DISTRIBUTION
@@ -83,42 +99,56 @@ def calculate_var():
 
         params = stats.t.fit(df['log_returns'])
         t_value = -stats.t.ppf(risk_level, params[0])
-        daily_VaR_t = collateralValue * t_value * volatility
-        yearly_VaR_t = daily_VaR_t * np.sqrt(365)
+        daily_VaR_t_GARCH = collateralValue * t_value * volatility
+        yearly_VaR_t_GARCH = daily_VaR_t_GARCH * np.sqrt(365)
+        daily_VaR_t_implied = collateralValue * t_value * (
+            (deribit_vol / 100) / np.sqrt(365))
+        yearly_VaR_t_implied = collateralValue * t_value * (deribit_vol / 100)
 
         df['VaR_hist'] = -df['log_returns'].rolling(
-            window=len(prices)).quantile(risk_level)
+            window=120).quantile(risk_level)
         mean_VaR_hist = df['VaR_hist'].mean()
 
         ############################################################################
         #                            RETURN RESULTS
         ############################################################################
 
-        return jsonify({
-            'Daily VaR USD':
-            daily_VaR.values[0],
-            'Yearly VaR USD':
-            yearly_VaR.values[0],
+        return {
+            'Daily VaR GARCH USD':
+            daily_VaR_GARCH.values[0],
+            'Yearly VaR GARCH USD':
+            yearly_VaR_GARCH.values[0],
+            'Daily VaR Implied Vol USD':
+            daily_VaR_implied,
+            'Yearly VaR Implied Vol':
+            yearly_VaR_implied,
             'Daily VaR USD (t-distribution, GARCH volatility)':
-            daily_VaR_t.values[0],
+            daily_VaR_t_GARCH.values[0],
             'Yearly VaR USD (t-distribution, GARCH volatility)':
-            yearly_VaR_t.values[0],
+            yearly_VaR_t_GARCH.values[0],
+            'Daily VaR USD (t-distribution, implied volatility)':
+            daily_VaR_t_implied,
+            'Yearly VaR USD (t-distribution, implied volatility)':
+            yearly_VaR_t_implied,
             'Mean 1-day VaR USD (Historical Simulation)':
             mean_VaR_hist
-        })
+        }
 
     except requests.exceptions.HTTPError as errh:
-        return jsonify({'error': 'HTTP Error: {}'.format(errh)}), 400
+        raise HTTPException(status_code=400,
+                            detail='HTTP Error: {}'.format(errh))
     except requests.exceptions.ConnectionError as errc:
-        return jsonify({'error': 'Error Connecting: {}'.format(errc)}), 400
+        raise HTTPException(status_code=400,
+                            detail='Error Connecting: {}'.format(errc))
     except requests.exceptions.Timeout as errt:
-        return jsonify({'error': 'Timeout Error: {}'.format(errt)}), 400
+        raise HTTPException(status_code=400,
+                            detail='Timeout Error: {}'.format(errt))
     except requests.exceptions.RequestException as err:
-        return jsonify({'error': 'Something went wrong: {}'.format(err)}), 400
+        raise HTTPException(status_code=400,
+                            detail='Something went wrong: {}'.format(err))
     except Exception as e:
-        return jsonify({'error':
-                        'An unexpected error occurred: {}'.format(e)}), 400
-
-
-if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+        print(f"Exception type: {type(e)}")
+        print(f"Exception args: {e.args}")
+        print(f"Exception: {e}")
+        raise HTTPException(status_code=400,
+                            detail=f'An unexpected error occurred: {e}')
