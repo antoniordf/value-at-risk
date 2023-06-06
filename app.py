@@ -1,16 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import requests
-from flask import Flask, request, jsonify
 import numpy as np
 import pandas as pd
 from arch import arch_model
 import scipy.stats as stats
-import os
 import requests
 from datetime import datetime
 import time
-import asyncio
 import implied_vol
 
 app = FastAPI()
