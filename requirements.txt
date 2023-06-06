@@ -4,7 +4,7 @@ arch==6.0.1
 asgiref==3.7.2
 autopep8==2.0.2
 blinker==1.6.2
-Bottleneck @ file:///Users/ec2-user/ci_py311/bottleneck_1678322312632/work
+Bottleneck
 brotlipy==0.7.0
 certifi @ file:///private/var/folders/sy/f16zz6x50xz3113nwtb9bvq00000gp/T/abs_b64zphacdv/croot/certifi_1683875375103/work/certifi
 cffi @ file:///Users/ec2-user/ci_py311/cffi_1678315312775/work
