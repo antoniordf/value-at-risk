@@ -33,6 +33,9 @@ async def calculate_var(data: CalculateVarInput):
         collateralValue = data.collateralValue
         risk_level = data.risk_level
 
+        # Fetch implied vol data from Deribit
+        deribit_vol = await implied_vol.download_vol(data.asset)
+
         # Convert end_date to Unix timestamp (milliseconds)
         end_date = datetime.strptime(end_date, "%d/%m/%Y")
         end_date_unix = int(time.mktime(end_date.timetuple()) * 1000)
@@ -41,9 +44,6 @@ async def calculate_var(data: CalculateVarInput):
         url = f"https://api.binance.com/api/v3/klines?symbol={asset}&interval=1d&endTime={end_date_unix}&limit=1000"
         response = requests.get(url)
         binance_data = response.json()
-
-        # Fetch implied vol data from Deribit
-        deribit_vol = await implied_vol.download_vol(data.asset)
 
         # Convert to DataFrame
         df = pd.DataFrame(binance_data,
