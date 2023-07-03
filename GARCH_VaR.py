@@ -25,6 +25,7 @@ collateralValue = 10000
 
 # Calculate log returns
 df['log_returns'] = np.log(df['rate_close'] / df['rate_close'].shift(1))
+print("Average daily returns", df['log_returns'].mean())
 
 # Drop missing values
 df = df.dropna()
